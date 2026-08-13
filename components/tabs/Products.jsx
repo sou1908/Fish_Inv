@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Package, Pencil, Wand2, AlertTriangle } from "lucide-react";
+import { Plus, Package, Pencil, Wand2, AlertTriangle, Trash2 } from "lucide-react";
 import { useStore } from "../store";
 import { api } from "@/lib/client";
 import { formatMoney, margin, priceForMargin, toRupees } from "@/lib/money";
@@ -153,6 +153,19 @@ function ProductForm({ initial, currency, target, onClose, onSaved }) {
     }
   }
 
+  async function remove() {
+    if (!confirm(`Delete "${initial.name}"? This can't be undone. (Tip: uncheck Active instead to keep it in reports.)`)) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await api.del(`/api/products/${initial.id}`);
+      await onSaved();
+    } catch (e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  }
+
   return (
     <Modal open onClose={onClose} title={isNew ? "New product" : "Edit product"}>
       <div className="space-y-3">
@@ -240,6 +253,11 @@ function ProductForm({ initial, currency, target, onClose, onSaved }) {
         {err && <p className="text-sm text-danger">{err}</p>}
 
         <div className="flex gap-2 pt-1">
+          {!isNew && (
+            <button className="btn-danger" onClick={remove} disabled={busy}>
+              <Trash2 size={18} /> Delete
+            </button>
+          )}
           <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
           <button className="btn-primary flex-1" onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save"}

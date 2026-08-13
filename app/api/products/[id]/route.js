@@ -43,16 +43,14 @@ export async function PUT(request, { params }) {
   }
 }
 
-// Soft delete — deactivate so past sales/production keep their reference.
+// Hard delete. Past sales/production keep their snapshotted prices; they'll
+// just show "—" for the product name. To keep history intact instead, deactivate
+// the product (uncheck "Active") rather than deleting.
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    const [row] = await db
-      .update(schema.products)
-      .set({ isActive: false })
-      .where(eq(schema.products.id, Number(id)))
-      .returning();
-    return ok(row);
+    await db.delete(schema.products).where(eq(schema.products.id, Number(id)));
+    return ok({ ok: true });
   } catch (e) {
     return bad(e.message, 500);
   }

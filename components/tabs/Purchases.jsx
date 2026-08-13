@@ -67,6 +67,16 @@ export default function Purchases() {
 
   const rmById = (id) => rawMaterials.find((r) => r.id === id);
 
+  async function del(id) {
+    if (!confirm("Delete this purchase? The stock it added will be reversed.")) return;
+    try {
+      await api.del(`/api/purchases/${id}`);
+      await Promise.all([loadHistory(), reloadRaw()]);
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -170,9 +180,18 @@ export default function Purchases() {
           <div className="space-y-2">
             {history.map((p) => (
               <div key={p.id} className="card py-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="font-medium">{prettyDate(p.date)}</div>
-                  <div className="font-bold">{formatMoney(p.total, currency)}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="num font-bold">{formatMoney(p.total, currency)}</div>
+                    <button
+                      className="p-1.5 text-muted hover:text-danger"
+                      onClick={() => del(p.id)}
+                      aria-label="Delete purchase"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
                 <div className="text-xs text-muted mt-1 flex items-center gap-2 flex-wrap">
                   {p.supplier && <span>{p.supplier}</span>}
