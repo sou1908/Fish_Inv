@@ -1,9 +1,22 @@
 # Fish Snacks Studio
 
-Inventory & profit-tracking admin app for a single fish-snacks vendor.
+Simple daily sales and profit/loss app for a single fish-snacks vendor.
 React (Next.js) + Supabase Postgres, deployed on Vercel. Single shared-password gate.
 
-Built from the spec in [`fish.md`](./fish.md).
+Products need only a name and selling price. In Sales, record each product's
+quantity sold and **total daily cost**. Profit/loss = quantity × saved selling
+price − total daily cost. Costs can be recorded even with zero items sold.
+The Dashboard shows today's totals. Reports has 7/30/90-day presets and custom
+dates, weekday revenue averages, product profit, and PDF/CSV downloads.
+The Dashboard also shows overall profit/loss across all recorded sales,
+separate daily revenue and profit/loss charts for the last 30 days or all time, and each product's share of items sold
+across all time.
+Settings has one overall budget. The Dashboard shows this budget minus all
+recorded product costs (including historical sales costs). It does not reset.
+Settings also downloads and restores versioned JSON backups of all application
+tables, including the older inventory records. Restore validates the file and
+replaces the data in one database transaction; download a current backup first.
+The original inventory specification in `fish.md` is historical.
 
 ## Stack
 
@@ -28,13 +41,13 @@ Money is stored as integer **paise**; dates as `YYYY-MM-DD` strings.
    AUTH_SECRET="a-long-random-string"
    ```
 
-3. **Create the tables** (pushes the Drizzle schema to Neon):
+3. **Create the tables** (pushes the Drizzle schema to Supabase):
 
    ```
    npm run db:push
    ```
 
-4. *(optional)* **Seed demo products & materials:**
+4. *(optional, on an empty development database)* **Seed demo products:**
 
    ```
    npm run db:seed
@@ -69,5 +82,21 @@ Money is stored as integer **paise**; dates as `YYYY-MM-DD` strings.
 
 ## Tabs
 
-Dashboard · Sales · Production · Day Close · Purchases · Raw Stock · Products ·
-Reports · Settings — mobile-first, bottom tab bar.
+Dashboard · Sales · Products · Reports · Settings — mobile-first, bottom tab bar.
+
+## Updating an existing database
+
+Before running this version against an existing database, apply
+`migrations/001_daily_sales_cost.sql` (or run `npm run db:push`). It only adds
+the nullable `sales.total_cost` column and does not delete records.
+Existing sales with a null total cost retain their original quantity × cost
+snapshot calculation. New entries use the exact total daily cost entered.
+Editing a sale retains its original selling price. Archived products remain
+in historical totals. The old inventory tables and endpoints are retained
+for compatibility but are no longer part of the app navigation.
+
+The simplified profit/loss figures use sales costs only. Old day-close overheads
+and purchase records are not included; include all relevant costs in each
+product's daily cost going forward.
+
+Run `npm test`, `npm run lint`, and `npm run build` to validate changes.

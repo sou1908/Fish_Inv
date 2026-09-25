@@ -31,14 +31,12 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const [s, p, r] = await Promise.all([
+        const [s, p] = await Promise.all([
           api.get("/api/settings"),
           api.get("/api/products"),
-          api.get("/api/raw-materials"),
         ]);
         setSettings(s);
         setProducts(p);
-        setRawMaterials(r);
       } catch (e) {
         setError(e.message);
       } finally {

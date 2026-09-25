@@ -1,289 +1,190 @@
 "use client";
-
-import { useEffect, useMemo, useState } from "react";
-import {
-  Receipt, ChefHat, ClipboardCheck, ShoppingCart,
-  TrendingUp, TrendingDown, AlertTriangle, Wallet,
-} from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, Tooltip, XAxis } from "recharts";
+import { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useStore } from "../store";
 import { api } from "@/lib/client";
+import { today, prettyDate } from "@/lib/date";
+import { summarizeSales } from "@/lib/profit";
+import { allTimeRevenue, itemsSoldByProduct, recentRevenue } from "@/lib/dashboard";
+import { Spinner, MoneyKpi } from "../ui";
 import { formatMoney } from "@/lib/money";
-import { today, addDays, prettyDate } from "@/lib/date";
-import { Spinner, EmptyState } from "../ui";
+
+const PIE_COLORS = ["#0e7665", "#e8a33d", "#317ca5", "#db704b", "#7b6bb3", "#70a35c", "#c772a4"];
+
+function SalesTooltip({ active, payload, currency, metric }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return <div className="rounded-lg border border-border bg-white p-3 text-sm shadow-md">
+    <p className="font-semibold mb-2">{prettyDate(point.date)}</p>
+    <p>Revenue: {formatMoney(point.revenue, currency)}</p>
+    {metric === "profit" && <>
+      <p>Daily cost: {formatMoney(point.cost, currency)}</p>
+      <p className={point.profit < 0 ? "text-danger" : "text-ok"}>{point.profit < 0 ? "Loss" : "Profit"}: {formatMoney(Math.abs(point.profit), currency)}</p>
+    </>}
+  </div>;
+}
+
+function ChartPeriod({ period, onChange, label }) {
+  return <div className="flex shrink-0 rounded-lg border border-border p-0.5 text-xs" aria-label={`${label} chart period`}>
+    <button className={`px-2.5 py-1 rounded-md ${period === "30d" ? "bg-ink text-white" : "text-muted"}`} onClick={() => onChange("30d")} aria-pressed={period === "30d"}>30 days</button>
+    <button className={`px-2.5 py-1 rounded-md ${period === "all" ? "bg-ink text-white" : "text-muted"}`} onClick={() => onChange("all")} aria-pressed={period === "all"}>All time</button>
+  </div>;
+}
+
+function ProfitDot({ cx, cy, payload }) {
+  if (!payload?.profit) return null;
+  return <circle cx={cx} cy={cy} r="5" fill={payload.profit < 0 ? "#cb554b" : "#0e7665"} stroke="var(--surface)" strokeWidth="2" />;
+}
+
+function signedMoney(value, currency) {
+  if (value === 0) return formatMoney(0, currency);
+  return `${value > 0 ? "+" : "−"}${formatMoney(Math.abs(value), currency)}`;
+}
 
 export default function Dashboard({ goTo }) {
-  const { rawMaterials, currency, productById, settings } = useStore();
-  const [loading, setLoading] = useState(true);
-  const [sales, setSales] = useState([]);
-  const [closes, setCloses] = useState([]);
-  const [allSales, setAllSales] = useState([]);
-  const [purchases, setPurchases] = useState([]);
-
-  const from = addDays(today(), -29);
-  const to = today();
-
+  const { currency, productById, settings } = useStore();
+  const [state, setState] = useState({ loading: true, rows: [], error: "" });
+  const [revenuePeriod, setRevenuePeriod] = useState("30d");
+  const [profitPeriod, setProfitPeriod] = useState("30d");
+  const date = today();
   useEffect(() => {
-    (async () => {
-      const [s, c, as, p] = await Promise.all([
-        api.get(`/api/sales?from=${from}&to=${to}`),
-        api.get(`/api/day-close?from=${from}&to=${to}`),
-        api.get(`/api/sales`),
-        api.get(`/api/purchases`),
-      ]);
-      setSales(s);
-      setCloses(c);
-      setAllSales(as);
-      setPurchases(p);
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // budget & all-time sales
-  const allocated = settings?.allocatedBudget ?? 2000000;
-  const spent = purchases.reduce((s, p) => s + (p.total || 0), 0);
-  const remaining = allocated - spent;
-  const spentPct = allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0;
-  const overBudget = remaining < 0;
-  const totalSales = allSales.reduce((s, x) => s + x.quantity * x.unitPrice, 0);
-
-  const todaySales = sales.filter((s) => s.date === to);
-  const revenue = todaySales.reduce((s, x) => s + x.quantity * x.unitPrice, 0);
-  const cogs = todaySales.reduce((s, x) => s + x.quantity * x.costPriceSnapshot, 0);
-  const gross = revenue - cogs;
-  const todayClose = closes.find((c) => c.date === to);
-  const overheads = (todayClose?.overheads || []).reduce((s, o) => s + (o.amount || 0), 0);
-  const net = gross - overheads;
-  const marginPct = revenue > 0 ? (gross / revenue) * 100 : 0;
-
-  // 30-day sparkline
-  const spark = useMemo(() => {
-    const byDay = {};
-    sales.forEach((s) => {
-      byDay[s.date] = (byDay[s.date] || 0) + s.quantity * s.unitPrice;
-    });
-    const out = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = addDays(to, -i);
-      out.push({ date: d.slice(5), value: (byDay[d] || 0) / 100 });
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sales]);
-
-  // product ranking by total profit (30d)
-  const ranking = useMemo(() => {
-    const by = {};
-    sales.forEach((s) => {
-      by[s.productId] = (by[s.productId] || 0) + s.quantity * (s.unitPrice - s.costPriceSnapshot);
-    });
-    return Object.entries(by)
-      .map(([pid, profit]) => ({ pid: Number(pid), profit }))
-      .sort((a, b) => b.profit - a.profit);
-  }, [sales]);
-  const top3 = ranking.slice(0, 3);
-  const bottom3 = ranking.slice(-3).reverse();
-
-  const lowStock = rawMaterials.filter((r) => r.reorderLevel > 0 && r.currentStock <= r.reorderLevel);
-
-  if (loading) return <Spinner />;
-
-  const hasSales = revenue > 0 || todaySales.length > 0;
-  const verdict = !hasSales
-    ? "No sales recorded yet"
-    : net > 0
-    ? "You're up today"
-    : net < 0
-    ? "You're down today"
-    : "Breaking even today";
-
-  return (
-    <div className="space-y-6">
-      {/* ---- verdict hero (the ledger panel) ---- */}
-      <section
-        className="relative overflow-hidden rounded-3xl text-white p-6 md:p-8"
-        style={{ background: "linear-gradient(140deg, var(--ink) 0%, var(--ink-2) 100%)" }}
-      >
-        <div
-          className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-20 blur-2xl"
-          style={{ background: "var(--brand)" }}
-        />
-        <div className="relative">
-          <div className="eyebrow text-brand">
-            {prettyDate(to)} · Today&apos;s ledger
-          </div>
-          <div className="mt-3 font-display text-xl md:text-2xl text-white/90">{verdict}</div>
-          <div
-            className="num text-5xl md:text-6xl font-extrabold mt-1"
-            style={{ color: !hasSales ? "rgba(255,255,255,0.85)" : net >= 0 ? "var(--leaf)" : "var(--coral)" }}
-          >
-            {hasSales && net < 0 ? "−" : hasSales && net > 0 ? "+" : ""}
-            {formatMoney(Math.abs(net), currency)}
-          </div>
-
-          {/* stat strip */}
-          <div className="mt-7 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-0 md:divide-x md:divide-white/10">
-            <HeroStat label="Revenue" value={formatMoney(revenue, currency)} />
-            <HeroStat label="Gross profit" value={formatMoney(gross, currency)} className="md:pl-6" />
-            <HeroStat label="Overheads" value={formatMoney(overheads, currency)} className="md:pl-6" />
-            <HeroStat label="Margin" value={`${marginPct.toFixed(1)}%`} className="md:pl-6" />
-          </div>
-        </div>
-      </section>
-
-      {/* budget & sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="card lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <span className="eyebrow flex items-center gap-1.5">
-              <Wallet size={14} /> Budget
-            </span>
-            <button
-              onClick={() => goTo("settings")}
-              className="text-xs font-medium text-muted hover:text-brand-strong"
-            >
-              Edit
-            </button>
-          </div>
-          <div className="mt-3 flex items-end justify-between">
-            <div>
-              <div className="text-xs text-muted">Remaining</div>
-              <div className={`num text-3xl font-bold ${overBudget ? "text-danger" : "text-ok"}`}>
-                {formatMoney(remaining, currency)}
-              </div>
-            </div>
-            <div className="text-sm text-muted num">of {formatMoney(allocated, currency)}</div>
-          </div>
-          <div className="mt-3 h-2.5 rounded-full bg-black/5 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${spentPct}%`, background: overBudget ? "var(--coral)" : "var(--brand)" }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-muted">
-            <span className="num">Spent {formatMoney(spent, currency)}</span>
-            <span>{overBudget ? "Over budget" : `${spentPct.toFixed(0)}% used`}</span>
-          </div>
-        </div>
-
-        <div className="card flex flex-col">
-          <span className="eyebrow flex items-center gap-1.5">
-            <Receipt size={14} /> Total sales
-          </span>
-          <div className="num text-3xl font-bold text-ok mt-3">
-            {formatMoney(totalSales, currency)}
-          </div>
-          <div className="text-xs text-muted mt-1">
-            {allSales.length} sale{allSales.length === 1 ? "" : "s"} recorded
-          </div>
-        </div>
+    let cancelled = false;
+    api.get("/api/sales").then((rows) => {
+      if (!cancelled) setState({ loading: false, rows, error: "" });
+    }).catch((e) => { if (!cancelled) setState({ loading: false, rows: [], error: e.message }); });
+    return () => { cancelled = true; };
+  }, [date]);
+  if (state.loading) return <Spinner />;
+  if (state.error) return <p role="alert" className="card text-danger">{state.error}</p>;
+  const todayRows = state.rows.filter((row) => row.date === date);
+  const totals = summarizeSales(todayRows);
+  const allTime = summarizeSales(state.rows);
+  const allTimeCost = allTime.cost;
+  const recentChart = recentRevenue(state.rows, date);
+  const allTimeChart = allTimeRevenue(state.rows);
+  const revenueChart = revenuePeriod === "all" ? allTimeChart : recentChart;
+  const profitChart = profitPeriod === "all" ? allTimeChart : recentChart;
+  const profitAnalysis = profitChart.reduce((summary, point) => ({
+    total: summary.total + point.profit,
+    profitDays: summary.profitDays + (point.profit > 0 ? 1 : 0),
+    lossDays: summary.lossDays + (point.profit < 0 ? 1 : 0),
+  }), { total: 0, profitDays: 0, lossDays: 0 });
+  const itemChart = itemsSoldByProduct(state.rows).map((item) => ({
+    ...item,
+    name: productById(item.productId)?.name || `Deleted product #${item.productId}`,
+  }));
+  const totalItems = itemChart.reduce((sum, item) => sum + item.units, 0);
+  const budget = settings?.allocatedBudget ?? 0;
+  const remaining = budget - allTimeCost;
+  const ids = [...new Set(todayRows.map((r) => r.productId))];
+  return <div className="space-y-5">
+    <section className="rounded-3xl bg-ink text-white p-6 md:p-8">
+      <p className="text-sm text-white/70">All recorded sales</p>
+      <h1 className="text-2xl font-bold mt-2">Overall profit / loss · all time</h1>
+      <p className={`text-4xl font-bold mt-3 ${allTime.profit < 0 ? "text-red-300" : "text-emerald-300"}`}>{formatMoney(allTime.profit, currency)}</p>
+      <p className="text-sm text-white/70 mt-3">All sales revenue minus all recorded daily costs.</p>
+    </section>
+    <div className="grid sm:grid-cols-3 gap-3">
+      <MoneyKpi label="Sales revenue" paise={totals.revenue} currency={currency} />
+      <MoneyKpi label="Total daily cost" paise={totals.cost} currency={currency} />
+      <MoneyKpi label={`Today's profit / loss · ${prettyDate(date)}`} paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
+    </div>
+    <section className="card space-y-3">
+      <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Overall budget</h2><button className="text-sm text-brand-strong" onClick={() => goTo("settings")}>Edit budget</button></div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+        <div><p className="text-muted">Starting budget</p><strong>{formatMoney(budget, currency)}</strong></div>
+        <div><p className="text-muted">All recorded costs</p><strong>{formatMoney(allTimeCost, currency)}</strong></div>
+        <div><p className="text-muted">Remaining</p><strong className={remaining < 0 ? "text-danger" : "text-ok"}>{formatMoney(remaining, currency)}</strong></div>
       </div>
-
-      {/* sparkline */}
-      <div className="card">
-        <div className="eyebrow mb-3">Revenue · last 30 days</div>
-        <div className="h-40 md:h-52">
-          {spark.some((d) => d.value > 0) ? (
+      <p className="text-xs text-muted">All recorded product costs reduce this budget. It does not reset monthly.</p>
+    </section>
+    <div className="grid lg:grid-cols-2 gap-4">
+      <section className="card min-w-0">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Revenue</h2>
+          <ChartPeriod period={revenuePeriod} onChange={setRevenuePeriod} label="Revenue" />
+        </div>
+        <p className="text-xs text-muted mt-1">Daily sales before costs</p>
+        {revenueChart.some((point) => point.revenue > 0) ? (
+          <div className="h-64 mt-4" role="img" aria-label={`Bar chart of daily revenue for ${revenuePeriod === "all" ? "all time" : "the last 30 days"}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={spark} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#E8A33D" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#E8A33D" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" hide />
-                <Tooltip
-                  formatter={(v) => [`${currency}${Number(v).toFixed(0)}`, "Revenue"]}
-                  labelFormatter={(l) => l}
-                  contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontFamily: "var(--font-mono)" }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#CF861C" strokeWidth={2.5} fill="url(#rev)" />
-              </AreaChart>
+              <BarChart data={revenueChart} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="#e5ebe6" />
+                <XAxis dataKey="date" tickFormatter={(value) => value.slice(5)} interval="preserveStartEnd" minTickGap={22} tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(value) => (value / 100).toLocaleString("en-IN", { notation: "compact", maximumFractionDigits: 1 })} tick={{ fontSize: 11 }} width={46} />
+                <Tooltip content={<SalesTooltip currency={currency} metric="revenue" />} />
+                <Bar dataKey="revenue" fill="#cf861c" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              </BarChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center text-sm text-muted">
-              No sales yet — record a sale to see the trend.
+          </div>
+        ) : <p className="text-sm text-muted py-16 text-center">Record sales to see the revenue chart.</p>}
+      </section>
+      <section className="card min-w-0">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Profit / loss</h2>
+          <ChartPeriod period={profitPeriod} onChange={setProfitPeriod} label="Profit and loss" />
+        </div>
+        <p className="text-xs text-muted mt-1">Daily revenue minus daily cost</p>
+        {profitChart.some((point) => point.revenue !== 0 || point.cost !== 0) ? (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-4">
+              <p className={`text-2xl font-bold ${profitAnalysis.total < 0 ? "text-danger" : "text-ok"}`}>{signedMoney(profitAnalysis.total, currency)}</p>
+              <p className="text-xs text-muted">Selected period · {profitAnalysis.profitDays} profit {profitAnalysis.profitDays === 1 ? "day" : "days"} · {profitAnalysis.lossDays} loss {profitAnalysis.lossDays === 1 ? "day" : "days"}</p>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* quick actions */}
-      <div className="grid grid-cols-4 gap-3">
-        <QuickAction icon={Receipt} label="Sale" onClick={() => goTo("sales")} />
-        <QuickAction icon={ChefHat} label="Make" onClick={() => goTo("production")} />
-        <QuickAction icon={ShoppingCart} label="Buy" onClick={() => goTo("purchases")} />
-        <QuickAction icon={ClipboardCheck} label="Close" onClick={() => goTo("dayclose")} />
-      </div>
-
-      {/* alerts */}
-      {lowStock.length > 0 && (
-        <div className="card border-amber-300 bg-amber-50/50">
-          <div className="flex items-center gap-2 text-warn font-medium text-sm">
-            <AlertTriangle size={16} /> Low stock
+            <div className="h-56 mt-2" role="img" aria-label={`Line chart of daily profit and loss for ${profitPeriod === "all" ? "all time" : "the last 30 days"}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={profitChart} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="#e5ebe6" />
+                  <XAxis dataKey="date" tickFormatter={(value) => value.slice(5)} interval="preserveStartEnd" minTickGap={22} tick={{ fontSize: 11 }} />
+                  <YAxis domain={[(min) => Math.min(min, 0), (max) => Math.max(max, 0)]} tickFormatter={(value) => (value / 100).toLocaleString("en-IN", { notation: "compact", maximumFractionDigits: 1 })} tick={{ fontSize: 11 }} width={46} />
+                  <ReferenceLine y={0} stroke="#87938d" strokeWidth={1.5} />
+                  <Tooltip cursor={{ stroke: "#a8b3ad", strokeDasharray: "4 4" }} content={<SalesTooltip currency={currency} metric="profit" />} />
+                  <Line type="linear" dataKey="profit" stroke="#65756e" strokeWidth={2.5} dot={<ProfitDot />} activeDot={<ProfitDot />} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        ) : <p className="text-sm text-muted py-16 text-center">Record daily sales or costs to see profit and loss.</p>}
+        <p className="text-xs text-muted mt-2"><span className="text-ok">Green point = profit</span> · <span className="text-danger">Red point = loss</span></p>
+      </section>
+    </div>
+    <div className="grid lg:grid-cols-2 gap-4">
+      <section className="card min-w-0">
+        <h2 className="font-semibold">Items sold · all time</h2>
+        <p className="text-xs text-muted mt-1">Share of {totalItems.toLocaleString("en-IN")} items sold</p>
+        {itemChart.length ? <>
+          <div className="h-56 mt-2" role="img" aria-label="Pie chart of items sold by product">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={itemChart} dataKey="units" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={84} paddingAngle={2}>
+                  {itemChart.map((item, index) => <Cell key={item.productId} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(value) => [`${value.toLocaleString("en-IN")} items`, "Sold"]} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-          <div className="text-sm text-muted mt-1">{lowStock.map((r) => r.name).join(", ")}</div>
-        </div>
-      )}
-
-      {/* rankings */}
-      {ranking.length === 0 ? (
-        <EmptyState icon={TrendingUp} title="No sales in the last 30 days" hint="Record a sale to see rankings." />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <RankList title="Top earners (30d)" icon={TrendingUp} items={top3} productById={productById} currency={currency} good />
-          {ranking.length > 3 && (
-            <RankList title="Lowest earners (30d)" icon={TrendingDown} items={bottom3} productById={productById} currency={currency} />
-          )}
-        </div>
-      )}
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {itemChart.map((item, index) => <li key={item.productId} className="flex items-center justify-between gap-2 min-w-0">
+              <span className="flex items-center gap-2 min-w-0"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[index % PIE_COLORS.length] }} /><span className="truncate" title={item.name}>{item.name}</span></span>
+              <strong className="shrink-0">{item.units.toLocaleString("en-IN")}</strong>
+            </li>)}
+          </ul>
+        </> : <p className="text-sm text-muted py-16 text-center">Record items sold to see the product share.</p>}
+      </section>
     </div>
-  );
-}
-
-function HeroStat({ label, value, className = "" }) {
-  return (
-    <div className={className}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
-        {label}
-      </div>
-      <div className="num text-lg md:text-xl font-bold text-white mt-1">{value}</div>
+    <div className="flex flex-wrap gap-3">
+      <button className="btn-primary" onClick={() => goTo("sales")}>Enter daily sales</button>
+      <button className="btn-ghost" onClick={() => goTo("products")}>Manage products</button>
     </div>
-  );
-}
-
-function QuickAction({ icon: Icon, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="card card-hover flex flex-col items-center gap-2 py-4 hover:border-brand/50 active:scale-95"
-    >
-      <span className="h-11 w-11 rounded-full bg-brand/12 text-brand-strong flex items-center justify-center">
-        <Icon size={21} />
-      </span>
-      <span className="text-xs font-semibold">{label}</span>
-    </button>
-  );
-}
-
-function RankList({ title, icon: Icon, items, productById, currency, good }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 text-sm font-semibold text-muted mb-2">
-        <Icon size={16} /> {title}
-      </div>
-      <div className="card p-0 divide-y divide-border">
-        {items.map((x) => (
-          <div key={x.pid} className="flex items-center justify-between p-3">
-            <span className="font-medium">{productById(x.pid)?.name || "—"}</span>
-            <span className={`num font-bold ${good ? "text-ok" : x.profit < 0 ? "text-danger" : ""}`}>
-              {formatMoney(x.profit, currency)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    {ids.length > 0 && <section className="card space-y-3">
+      <h2 className="font-semibold">Today by product</h2>
+      {ids.map((id) => {
+        const values = summarizeSales(todayRows.filter((s) => s.productId === id));
+        return <div key={id} className="flex justify-between gap-3 border-t border-border pt-3">
+          <span>{productById(id)?.name || "Deleted product"} <span className="text-xs text-muted">({values.units} sold)</span></span>
+          <strong className={values.profit < 0 ? "text-danger" : "text-ok"}>{formatMoney(values.profit, currency)}</strong>
+        </div>;
+      })}
+    </section>}
+  </div>;
 }

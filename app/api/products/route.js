@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ok, bad, body } from "@/lib/http";
 import { today } from "@/lib/date";
+import { validAmount } from "@/lib/profit";
 
 export const runtime = "nodejs";
 
@@ -17,16 +18,13 @@ export async function GET() {
 export async function POST(request) {
   try {
     const b = await body(request);
-    if (!b.name) return bad("Name is required");
+    if (typeof b.name !== "string" || !b.name.trim()) return bad("Name is required");
+    if (!validAmount(b.sellingPrice)) return bad("Valid selling price is required");
     const [row] = await db
       .insert(schema.products)
       .values({
-        name: b.name,
-        category: b.category || null,
-        sellingPrice: b.sellingPrice ?? 0,
-        costPrice: b.costPrice ?? 0,
-        batchYield: b.batchYield ?? 1,
-        isActive: b.isActive ?? true,
+        name: b.name.trim(),
+        sellingPrice: b.sellingPrice,
       })
       .returning();
     // seed price history

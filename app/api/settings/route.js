@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ok, bad, body } from "@/lib/http";
+import { validAmount } from "@/lib/profit";
 
 export const runtime = "nodejs";
 
@@ -22,9 +23,15 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
+    const input = await body(request);
+    if (!input || typeof input !== "object" || Array.isArray(input)) return bad("Invalid settings");
+    if (Object.keys(input).some((key) => !["businessName", "allocatedBudget"].includes(key))) return bad("Unsupported setting");
+    if ("businessName" in input && (typeof input.businessName !== "string" || !input.businessName.trim())) return bad("Business name is required");
+    if ("allocatedBudget" in input && !validAmount(input.allocatedBudget)) return bad("Enter a valid non-negative budget");
+    const patch = { ...input };
+    if (patch.businessName) patch.businessName = patch.businessName.trim();
+    if (!Object.keys(patch).length) return bad("No settings supplied");
     await ensureSettings();
-    const patch = await body(request);
-    delete patch.id;
     const [row] = await db
       .update(schema.settings)
       .set(patch)

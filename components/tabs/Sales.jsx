@@ -1,150 +1,118 @@
 "use client";
-
 import { useEffect, useState } from "react";
-import { Receipt, Trash2, Check } from "lucide-react";
+import { Pencil, Trash2, Receipt } from "lucide-react";
 import { useStore } from "../store";
 import { api } from "@/lib/client";
 import { formatMoney } from "@/lib/money";
 import { today, prettyDate } from "@/lib/date";
-import { NumberInput, EmptyState, Spinner, Badge } from "../ui";
+import { saleTotals, summarizeSales, validateSale } from "@/lib/profit";
+import { MoneyInput, NumberInput, EmptyState, Spinner, Modal, MoneyKpi } from "../ui";
 
 export default function Sales() {
   const { products, currency, productById } = useStore();
   const [date, setDate] = useState(today());
-  const [qty, setQty] = useState({}); // productId -> qty being entered
-  const [existing, setExisting] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const activeProducts = products.filter((p) => p.isActive);
-
-  async function load() {
-    setLoading(true);
-    setExisting(await api.get(`/api/sales?date=${date}`));
-    setLoading(false);
-  }
-  useEffect(() => {
-    load();
-    setQty({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
-
-  const pending = activeProducts
-    .map((p) => ({ p, q: qty[p.id] || 0 }))
-    .filter((x) => x.q > 0);
-  const pendingRevenue = pending.reduce((s, x) => s + x.q * x.p.sellingPrice, 0);
-  const savedRevenue = existing.reduce((s, x) => s + x.quantity * x.unitPrice, 0);
-
-  async function saveAll() {
-    if (pending.length === 0) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      for (const { p, q } of pending) {
-        await api.post("/api/sales", { date, productId: p.id, quantity: q });
-      }
-      setQty({});
-      await load();
-      setMsg(`Saved ${pending.length} product(s)`);
-    } catch (e) {
-      setMsg(e.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function del(id) {
-    await api.del(`/api/sales/${id}`);
-    await load();
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-bold">Sales</h1>
-        <input
-          type="date"
-          className="field w-auto py-2"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-      </div>
-
-      {activeProducts.length === 0 ? (
-        <EmptyState icon={Receipt} title="No active products" hint="Add products first." />
-      ) : (
-        <>
-          <div className="card divide-y divide-border p-0 overflow-hidden">
-            {activeProducts.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 p-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{p.name}</div>
-                  <div className="text-xs text-muted">{formatMoney(p.sellingPrice, currency)} each</div>
-                </div>
-                <div className="w-28">
-                  <NumberInput
-                    value={qty[p.id] || 0}
-                    onChange={(v) => setQty((s) => ({ ...s, [p.id]: v }))}
-                    placeholder="qty"
-                  />
-                </div>
-                <div className="w-20 text-right font-semibold text-sm">
-                  {formatMoney((qty[p.id] || 0) * p.sellingPrice, currency)}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="sticky bottom-24 mt-3">
-            <button
-              className="btn-primary w-full shadow-lg"
-              onClick={saveAll}
-              disabled={saving || pending.length === 0}
-            >
-              <Check size={18} />
-              {saving
-                ? "Saving…"
-                : `Save ${pending.length} · ${formatMoney(pendingRevenue, currency)}`}
-            </button>
-          </div>
-          {msg && <p className="text-sm text-brand mt-2 text-center">{msg}</p>}
-        </>
-      )}
-
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            {prettyDate(date)} — recorded
-          </h2>
-          {savedRevenue > 0 && <Badge tone="green">{formatMoney(savedRevenue, currency)}</Badge>}
-        </div>
-        {loading ? (
-          <Spinner label="" />
-        ) : existing.length === 0 ? (
-          <p className="text-sm text-muted">Nothing recorded yet.</p>
-        ) : (
-          <div className="card divide-y divide-border p-0">
-            {existing.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 p-3">
-                <div className="flex-1">
-                  <div className="font-medium">{productById(s.productId)?.name || "—"}</div>
-                  <div className="text-xs text-muted">
-                    {s.quantity} × {formatMoney(s.unitPrice, currency)}
-                    {s.paymentMode === "credit" && " · credit"}
-                  </div>
-                </div>
-                <div className="font-semibold text-sm">
-                  {formatMoney(s.quantity * s.unitPrice, currency)}
-                </div>
-                <button className="p-2 text-muted" onClick={() => del(s.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-xl font-bold">Daily sales</h1>
+      <label><span className="sr-only">Sales date</span><input type="date" className="field w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
     </div>
-  );
+    <DailySales key={date} date={date} products={products} currency={currency} productById={productById} />
+  </div>;
+}
+
+function DailySales({ date, products, currency, productById }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/api/sales?date=${date}`).then((data) => {
+      if (!cancelled) { setRows(data); setError(""); }
+    }).catch((e) => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [date, version]);
+  const totals = summarizeSales(rows);
+  const available = products.filter((p) => p.isActive && !rows.some((r) => r.productId === p.id));
+  async function remove(row) {
+    if (!confirm("Delete this daily sales entry?")) return;
+    setBusy(true); setError("");
+    try { await api.del(`/api/sales/${row.id}`); setRows((old) => old.filter((s) => s.id !== row.id)); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  if (loading) return <Spinner />;
+  return <div className="space-y-4">
+    <p className="text-sm text-muted">Enter quantity sold and the total cost for each product on {prettyDate(date)}. Profit = sales revenue − total daily cost.</p>
+    {error && <div role="alert" className="card text-danger">{error} <button className="btn-ghost" onClick={() => { setLoading(true); setVersion((v) => v + 1); }}>Retry</button></div>}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <MoneyKpi label="Sales revenue" paise={totals.revenue} currency={currency} />
+      <MoneyKpi label="Total daily cost" paise={totals.cost} currency={currency} />
+      <MoneyKpi label="Daily profit / loss" paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
+    </div>
+    {!error && <button className="btn-primary" disabled={!available.length || busy} onClick={() => setEditing({})}>Add daily sales</button>}
+    {!error && !available.length && <p className="text-sm text-muted">{products.some((p) => p.isActive) ? "All active products have an entry for this day. Edit an entry below to correct it." : "Add a product in Products to start."}</p>}
+    {!rows.length ? <EmptyState icon={Receipt} title="Nothing recorded for this day" /> :
+      rows.map((row) => {
+        const values = saleTotals(row);
+        const name = productById(row.productId)?.name || "Deleted product";
+        return <div className="card space-y-3" key={row.id}>
+          <div className="flex items-center justify-between gap-2">
+            <div><h2 className="font-semibold">{name}</h2><p className="text-xs text-muted">{row.quantity} items × {formatMoney(row.unitPrice, currency)}</p></div>
+            <div className="flex gap-1">
+              <button className="btn-ghost" aria-label={`Edit sales for ${name}`} disabled={busy} onClick={() => setEditing(row)}><Pencil size={16} /></button>
+              <button className="btn-ghost text-danger" aria-label={`Delete sales for ${name}`} disabled={busy} onClick={() => remove(row)}><Trash2 size={16} /></button>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div><p className="text-muted text-xs">Revenue</p>{formatMoney(values.revenue, currency)}</div>
+            <div><p className="text-muted text-xs">Total cost</p>{formatMoney(values.cost, currency)}</div>
+            <div><p className="text-muted text-xs">Profit / loss</p><span className={values.profit < 0 ? "text-danger font-bold" : "text-ok font-bold"}>{formatMoney(values.profit, currency)}</span></div>
+          </div>
+        </div>;
+      })}
+    {editing && <SaleForm initial={editing} available={available} products={products} date={date} currency={currency} onClose={() => setEditing(null)} onSaved={(row) => {
+      setRows((old) => [row, ...old.filter((r) => r.id !== row.id)]); setEditing(null);
+    }} />}
+  </div>;
+}
+
+function SaleForm({ initial, available, products, date, currency, onClose, onSaved }) {
+  const [productId, setProductId] = useState(initial.productId || available[0]?.id);
+  const [quantity, setQuantity] = useState(initial.quantity ?? 0);
+  const [totalCost, setTotalCost] = useState(initial.id ? saleTotals(initial).cost : 0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const product = products.find((p) => p.id === productId);
+  const unitPrice = initial.id ? initial.unitPrice : product?.sellingPrice ?? 0;
+  const profit = quantity * unitPrice - totalCost;
+  async function save(e) {
+    e.preventDefault();
+    const problem = validateSale({ quantity, totalCost });
+    if (problem) return setError(problem);
+    setBusy(true); setError("");
+    try {
+      const payload = { date, productId, quantity, totalCost };
+      const row = initial.id ? await api.put(`/api/sales/${initial.id}`, payload) : await api.post("/api/sales", payload);
+      onSaved(row);
+    } catch (e) { setError(e.message); setBusy(false); }
+  }
+  return <Modal open title={initial.id ? "Edit daily sales" : "Add daily sales"} onClose={() => !busy && onClose()}>
+    <form className="space-y-4" onSubmit={save}>
+      {initial.id ? <p className="font-semibold">{product?.name || "Deleted product"}</p> :
+        <label className="block"><span className="label">Product</span><select className="field" value={productId} onChange={(e) => setProductId(Number(e.target.value))}>
+          {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select></label>}
+      <p className="text-sm text-muted">{prettyDate(date)} · {formatMoney(unitPrice, currency)} per item</p>
+      <label className="block"><span className="label">Quantity sold</span><NumberInput value={quantity} onChange={setQuantity} /></label>
+      <label className="block"><span className="label">Total daily cost for this product</span><MoneyInput value={totalCost} onChange={setTotalCost} /></label>
+      <p className="text-xs text-muted">Enter the full cost for this product for the day, including any unsold items. You can enter zero sold when there was still a cost.</p>
+      <div className="rounded-xl bg-bg p-3 flex justify-between"><span>Profit / loss</span><strong className={profit < 0 ? "text-danger" : "text-ok"}>{formatMoney(profit, currency)}</strong></div>
+      {error && <p className="text-danger text-sm" role="alert">{error}</p>}
+      <div className="flex gap-2"><button type="button" className="btn-ghost" disabled={busy} onClick={onClose}>Cancel</button><button className="btn-primary flex-1" disabled={busy}>{busy ? "Saving…" : "Save daily sales"}</button></div>
+    </form>
+  </Modal>;
 }

@@ -3,12 +3,8 @@
 import { useState } from "react";
 import {
   LayoutDashboard,
-  ShoppingCart,
-  Boxes,
   Package,
-  ChefHat,
   Receipt,
-  ClipboardCheck,
   BarChart3,
   Settings as SettingsIcon,
   MoreHorizontal,
@@ -20,22 +16,14 @@ import { Spinner } from "./ui";
 import Guide from "./Guide";
 
 import Dashboard from "./tabs/Dashboard";
-import Purchases from "./tabs/Purchases";
-import RawStock from "./tabs/RawStock";
 import Products from "./tabs/Products";
-import Production from "./tabs/Production";
 import Sales from "./tabs/Sales";
-import DayClose from "./tabs/DayClose";
 import Reports from "./tabs/Reports";
 import SettingsTab from "./tabs/Settings";
 
 const TABS = {
   dashboard: { label: "Dashboard", icon: LayoutDashboard, Comp: Dashboard },
   sales: { label: "Sales", icon: Receipt, Comp: Sales },
-  production: { label: "Production", icon: ChefHat, Comp: Production },
-  dayclose: { label: "Day Close", icon: ClipboardCheck, Comp: DayClose },
-  purchases: { label: "Purchases", icon: ShoppingCart, Comp: Purchases },
-  rawstock: { label: "Raw Stock", icon: Boxes, Comp: RawStock },
   products: { label: "Products", icon: Package, Comp: Products },
   reports: { label: "Reports", icon: BarChart3, Comp: Reports },
   settings: { label: "Settings", icon: SettingsIcon, Comp: SettingsTab },
@@ -45,17 +33,13 @@ const TABS = {
 const NAV = [
   "dashboard",
   "sales",
-  "production",
-  "dayclose",
-  "purchases",
-  "rawstock",
   "products",
   "reports",
   "settings",
 ];
 // bottom-bar layout for mobile
-const PRIMARY = ["dashboard", "sales", "production", "dayclose"];
-const MORE = ["purchases", "rawstock", "products", "reports", "settings"];
+const PRIMARY = ["dashboard", "sales", "products", "reports"];
+const MORE = ["settings"];
 
 function Shell() {
   const { settings, loading, error } = useStore();

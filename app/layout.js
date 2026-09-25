@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
 
 export const metadata = {
   title: "Fish Snacks Studio",
-  description: "Inventory & profit tracking for a fish-snacks vendor",
+  description: "Simple daily sales, costs, and profit tracking",
 };
 
 export const viewport = {

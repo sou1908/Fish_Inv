@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { toPaise, toRupees, formatMoney } from "@/lib/money";
 
 /** Money input shown in rupees, reports value up in paise. */
 export function MoneyInput({ value, onChange, placeholder = "0.00", className = "" }) {
+  // Keep the text being typed so an empty field and a trailing decimal point
+  // do not immediately turn back into a formatted number on every keystroke.
+  const [draft, setDraft] = useState(null);
+  const displayValue = draft !== null ? draft : value ? String(toRupees(value)) : "";
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">₹</span>
@@ -16,11 +20,14 @@ export function MoneyInput({ value, onChange, placeholder = "0.00", className = 
         inputMode="decimal"
         step="0.01"
         min="0"
-        value={value === 0 || value ? toRupees(value) : ""}
+        value={displayValue}
         placeholder={placeholder}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? 0 : toPaise(e.target.value))
-        }
+        onFocus={() => setDraft(displayValue)}
+        onBlur={() => setDraft(null)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onChange(e.target.value === "" ? 0 : toPaise(e.target.value));
+        }}
       />
     </div>
   );
@@ -28,6 +35,8 @@ export function MoneyInput({ value, onChange, placeholder = "0.00", className = 
 
 /** Plain numeric field for quantities/counts. */
 export function NumberInput({ value, onChange, placeholder = "0", step = "1", className = "" }) {
+  const [draft, setDraft] = useState(null);
+  const displayValue = draft !== null ? draft : value ? String(value) : "";
   return (
     <input
       className={`field ${className}`}
@@ -35,9 +44,14 @@ export function NumberInput({ value, onChange, placeholder = "0", step = "1", cl
       inputMode="decimal"
       step={step}
       min="0"
-      value={value === 0 || value ? value : ""}
+      value={displayValue}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+      onFocus={() => setDraft(displayValue)}
+      onBlur={() => setDraft(null)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onChange(e.target.value === "" ? 0 : Number(e.target.value));
+      }}
     />
   );
 }
