@@ -80,22 +80,22 @@ export default function Settings() {
     } catch (e) { setMessage(e.message); setBusy(false); }
   }
 
-  return <div className="max-w-xl space-y-5">
+  return <div className="min-w-0 max-w-xl space-y-5">
     <form onSubmit={save} className="card space-y-4">
       <h1 className="text-xl font-bold">Settings</h1>
       <label className="block"><span className="label">Business name</span><input className="field" required value={name} onChange={(e) => setName(e.target.value)} /></label>
       <label className="block"><span className="label">Overall budget ({currency})</span><MoneyInput value={budget} onChange={setBudget} /></label>
       <p className="text-xs text-muted">The Dashboard subtracts every recorded product cost from this one budget. It does not reset monthly.</p>
-      <button className="btn-primary" disabled={busy || !name.trim()}>{busy ? "Working…" : "Save settings"}</button>
+      <button className="btn-primary w-full sm:w-auto" disabled={busy || !name.trim()}>{busy ? "Working…" : "Save settings"}</button>
     </form>
     <section className="card space-y-4">
       <div><h2 className="text-lg font-bold">JSON backup</h2><p className="text-sm text-muted mt-1">Download all app data before an update. Restore a saved file if you need to recover it.</p></div>
-      <button type="button" className="btn-ghost" disabled={busy} onClick={download}><Download size={18} /> Download backup</button>
+      <button type="button" className="btn-ghost w-full sm:w-auto" disabled={busy} onClick={download}><Download size={18} /> Download backup</button>
       <div className="border-t border-border pt-4 space-y-3">
         <label className="block"><span className="label">Upload backup (.json)</span><input className="field" type="file" accept=".json,application/json" disabled={busy} onChange={(e) => chooseFile(e.target.files?.[0])} /></label>
         {preview && <p className="text-sm">Backup from {preview.date}: {preview.products} products, {preview.sales} sales.</p>}
         <p className="text-xs text-muted">Restoring replaces all current app data, including settings, products, sales, and older inventory records. Download a current backup first.</p>
-        <button type="button" className="btn-primary" disabled={busy || !preview} onClick={restore}><Upload size={18} /> Restore backup</button>
+        <button type="button" className="btn-primary w-full sm:w-auto" disabled={busy || !preview} onClick={restore}><Upload size={18} /> Restore backup</button>
       </div>
     </section>
     {message && <p role="status" className="text-sm">{message}</p>}

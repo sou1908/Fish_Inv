@@ -30,14 +30,14 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6 text-white"
+      className="min-h-[100dvh] overflow-hidden flex items-center justify-center px-4 py-8 sm:p-6 text-white"
       style={{ background: "linear-gradient(150deg, var(--ink) 0%, var(--ink-2) 60%, #0a2320 100%)" }}
     >
       <div
         className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full opacity-20 blur-3xl"
         style={{ background: "var(--brand)" }}
       />
-      <form onSubmit={submit} className="relative w-full max-w-sm">
+      <form onSubmit={submit} className="relative min-w-0 w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
           <div className="h-16 w-16 rounded-2xl bg-brand text-ink flex items-center justify-center shadow-lg">
             <Fish size={30} />
@@ -48,7 +48,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur space-y-4">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 min-[380px]:p-5 backdrop-blur space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-white/50 mb-1.5">
               Password

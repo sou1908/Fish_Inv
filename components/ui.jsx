@@ -56,20 +56,20 @@ export function NumberInput({ value, onChange, placeholder = "0", step = "1", cl
   );
 }
 
-export function KpiCard({ label, value, sub, tone = "default" }) {
+export function KpiCard({ label, value, sub, tone = "default", className = "" }) {
   const toneClass =
     tone === "good" ? "text-ok" : tone === "bad" ? "text-danger" : "text-text";
   return (
-    <div className="kpi">
+    <div className={`kpi min-w-0 ${className}`}>
       <div className="eyebrow">{label}</div>
-      <div className={`num text-2xl font-bold mt-1.5 ${toneClass}`}>{value}</div>
+      <div className={`num kpi-value text-2xl font-bold mt-1.5 ${toneClass}`}>{value}</div>
       {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
     </div>
   );
 }
 
-export function MoneyKpi({ label, paise, currency, tone }) {
-  return <KpiCard label={label} value={formatMoney(paise, currency)} tone={tone} />;
+export function MoneyKpi({ label, paise, currency, tone, className }) {
+  return <KpiCard label={label} value={formatMoney(paise, currency)} tone={tone} className={className} />;
 }
 
 export function Badge({ children, tone = "gray" }) {
@@ -97,9 +97,9 @@ export function Modal({ open, onClose, title, children }) {
   // Portal to <body> so the modal can't be trapped by an ancestor with
   // transform/filter/backdrop-filter (which would break `position: fixed`).
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-md max-h-[85vh] overflow-y-auto rounded-b-none sm:rounded-2xl shadow-2xl">
+      <div className="relative card max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:max-w-md sm:rounded-2xl sm:pb-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold pr-4">{title}</h2>
           <button

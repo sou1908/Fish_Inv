@@ -21,16 +21,16 @@ export default function Sales() {
     setDate(selectedDate);
     setView("entry");
   }
-  return <div className="space-y-4">
+  return <div className="min-w-0 space-y-4">
     <h1 className="text-xl font-bold">Sales</h1>
     <div className="grid grid-cols-2 gap-2">
       <button type="button" className={view === "entry" ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={view === "entry"} onClick={() => setView("entry")}>Record sales</button>
       <button type="button" className={view === "history" ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={view === "history"} onClick={() => setView("history")}>Sales history</button>
     </div>
     <div className={view === "entry" ? "space-y-4" : "hidden"}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <h2 className="text-lg font-bold">Record daily sales</h2>
-        <label><span className="sr-only">Sales date</span><input type="date" className="field w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
+        <label><span className="sr-only">Sales date</span><input type="date" className="field w-full sm:w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
       </div>
       <DailySales key={date} date={date} products={products} currency={currency} productById={productById} onChanged={() => setHistoryVersion((value) => value + 1)} />
     </div>
@@ -72,29 +72,29 @@ function DailySales({ date, products, currency, productById, onChanged }) {
   return <div className="space-y-4">
     <p className="text-sm text-muted">Enter quantity sold and the total cost for each product on {prettyDate(date)}. Profit = sales revenue − total daily cost.</p>
     {error && <div role="alert" className="card text-danger">{error} <button className="btn-ghost" onClick={() => { setLoading(true); setVersion((v) => v + 1); }}>Retry</button></div>}
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <MoneyKpi label="Sales revenue" paise={totals.revenue} currency={currency} />
       <MoneyKpi label="Total daily cost" paise={totals.cost} currency={currency} />
-      <MoneyKpi label="Daily profit / loss" paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
+      <MoneyKpi className="col-span-2 sm:col-span-1" label="Daily profit / loss" paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
     </div>
-    {!error && <button className="btn-primary" disabled={!available.length || busy} onClick={() => setEditing({})}>Add daily sales</button>}
+    {!error && <button className="btn-primary w-full sm:w-auto" disabled={!available.length || busy} onClick={() => setEditing({})}>Add daily sales</button>}
     {!error && !available.length && <p className="text-sm text-muted">{products.some((p) => p.isActive) ? "All active products have an entry for this day. Edit an entry below to correct it." : "Add a product in Products to start."}</p>}
     {!rows.length ? <EmptyState icon={Receipt} title="Nothing recorded for this day" /> :
       rows.map((row) => {
         const values = saleTotals(row);
         const name = productById(row.productId)?.name || "Deleted product";
         return <div className="card space-y-3" key={row.id}>
-          <div className="flex items-center justify-between gap-2">
-            <div><h2 className="font-semibold">{name}</h2><p className="text-xs text-muted">{row.quantity} items × {formatMoney(row.unitPrice, currency)}</p></div>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0"><h2 className="break-words font-semibold">{name}</h2><p className="text-xs text-muted">{row.quantity} items × {formatMoney(row.unitPrice, currency)}</p></div>
             <div className="flex gap-1">
               <button className="btn-ghost" aria-label={`Edit sales for ${name}`} disabled={busy} onClick={() => setEditing(row)}><Pencil size={16} /></button>
               <button className="btn-ghost text-danger" aria-label={`Delete sales for ${name}`} disabled={busy} onClick={() => remove(row)}><Trash2 size={16} /></button>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div><p className="text-muted text-xs">Revenue</p>{formatMoney(values.revenue, currency)}</div>
             <div><p className="text-muted text-xs">Total cost</p>{formatMoney(values.cost, currency)}</div>
-            <div><p className="text-muted text-xs">Profit / loss</p><span className={values.profit < 0 ? "text-danger font-bold" : "text-ok font-bold"}>{formatMoney(values.profit, currency)}</span></div>
+            <div className="col-span-2 sm:col-span-1"><p className="text-muted text-xs">Profit / loss</p><span className={values.profit < 0 ? "text-danger font-bold" : "text-ok font-bold"}>{formatMoney(values.profit, currency)}</span></div>
           </div>
         </div>;
       })}
@@ -133,7 +133,7 @@ function SalesHistory({ currency, productById, refreshVersion, onSelectDate }) {
 
   const report = buildReportData(state.rows);
   const days = [...report.daily].reverse();
-  return <section className="space-y-4">
+  return <section className="min-w-0 space-y-4">
     <div>
       <h2 className="text-lg font-bold">Sales history</h2>
       <p className="text-sm text-muted mt-1">Review daily totals for one day, month, year, or all recorded sales.</p>
@@ -141,9 +141,9 @@ function SalesHistory({ currency, productById, refreshVersion, onSelectDate }) {
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {HISTORY_PERIODS.map((value) => <button key={value} type="button" className={period === value ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={period === value} onClick={() => { if (period !== value) { startLoading(); setPeriod(value); } }}>{value}</button>)}
     </div>
-    {period === "Day" && <label className="block max-w-xs"><span className="label">Day</span><input type="date" className="field" value={day} onChange={(event) => { if (event.target.value) { startLoading(); setDay(event.target.value); } }} /></label>}
-    {period === "Month" && <label className="block max-w-xs"><span className="label">Month</span><input type="month" className="field" value={month} onChange={(event) => { if (event.target.value) { startLoading(); setMonth(event.target.value); } }} /></label>}
-    {period === "Year" && <label className="block max-w-xs"><span className="label">Year</span><input type="number" className="field" min="2000" max="9999" step="1" value={year} onChange={(event) => { if (Number.isInteger(event.target.valueAsNumber)) { startLoading(); setYear(event.target.valueAsNumber); } }} /></label>}
+    {period === "Day" && <label className="block w-full sm:max-w-xs"><span className="label">Day</span><input type="date" className="field" value={day} onChange={(event) => { if (event.target.value) { startLoading(); setDay(event.target.value); } }} /></label>}
+    {period === "Month" && <label className="block w-full sm:max-w-xs"><span className="label">Month</span><input type="month" className="field" value={month} onChange={(event) => { if (event.target.value) { startLoading(); setMonth(event.target.value); } }} /></label>}
+    {period === "Year" && <label className="block w-full sm:max-w-xs"><span className="label">Year</span><input type="number" className="field" min="2000" max="9999" step="1" value={year} onChange={(event) => { if (Number.isInteger(event.target.valueAsNumber)) { startLoading(); setYear(event.target.valueAsNumber); } }} /></label>}
     {state.loading ? <Spinner label="Loading sales history…" /> : state.error ? <p role="alert" className="card text-danger">{state.error} <button type="button" className="btn-ghost" onClick={() => { startLoading(); setReloadVersion((value) => value + 1); }}>Retry</button></p> : <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard label="Items sold" value={report.totals.units.toLocaleString("en-IN")} />

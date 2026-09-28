@@ -55,7 +55,7 @@ function Shell() {
   }
 
   return (
-    <div className="min-h-screen bg-bg md:flex">
+    <div className="min-h-screen w-full overflow-x-hidden bg-bg md:flex">
       {/* ---- desktop sidebar (dark ledger) ---- */}
       <aside
         className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 text-white/90 border-r border-black/20"
@@ -98,21 +98,21 @@ function Shell() {
       </aside>
 
       {/* ---- content column ---- */}
-      <div className="flex-1 md:pl-64 flex flex-col min-h-screen">
+      <div className="flex min-h-screen min-w-0 w-full flex-1 flex-col md:pl-64">
         {/* mobile top header (ink) */}
         <header
-          className="md:hidden sticky top-0 z-20 text-white px-4 py-3 flex items-center justify-between"
+          className="md:hidden sticky top-0 z-20 flex min-w-0 items-center justify-between gap-2 px-4 py-3 text-white"
           style={{ background: "linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%)" }}
         >
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-brand text-ink flex items-center justify-center">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="h-9 w-9 shrink-0 rounded-xl bg-brand text-ink flex items-center justify-center">
               <Fish size={18} />
             </div>
-            <span className="font-display font-bold truncate">{businessName}</span>
+            <span className="truncate font-display text-sm font-bold min-[380px]:text-base">{businessName}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <Guide id={tab} className="text-white/85 hover:bg-white/10" />
-            <button onClick={logout} className="opacity-90 p-1" title="Log out">
+            <button onClick={logout} className="flex h-10 w-10 items-center justify-center rounded-xl opacity-90" title="Log out">
               <LogOut size={18} />
             </button>
           </div>
@@ -124,8 +124,8 @@ function Shell() {
           <Guide id={tab} className="text-muted hover:text-brand-strong hover:bg-black/5" />
         </header>
 
-        <main className="flex-1 p-4 pb-28 md:p-8 md:pb-8">
-          <div className="mx-auto w-full max-w-6xl">
+        <main className="min-w-0 flex-1 px-3 pb-28 pt-4 min-[380px]:px-4 md:p-8 md:pb-8">
+          <div className="mx-auto min-w-0 w-full max-w-6xl">
             {loading ? (
               <Spinner />
             ) : error ? (
@@ -147,7 +147,7 @@ function Shell() {
       </div>
 
       {/* ---- mobile bottom nav ---- */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-surface/95 backdrop-blur border-t border-border pb-safe">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-surface/95 backdrop-blur border-t border-border pb-safe" aria-label="Main navigation">
         <div className="grid grid-cols-5">
           {PRIMARY.map((id) => {
             const { label, icon: Icon } = TABS[id];
@@ -196,7 +196,7 @@ function Shell() {
 
 function NavItem({ icon: Icon, label, active, onClick }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1 pt-2 pb-1.5">
+    <button onClick={onClick} className="flex min-w-0 flex-col items-center gap-0.5 px-0.5 pb-1.5 pt-2" aria-current={active ? "page" : undefined}>
       <span
         className={`flex items-center justify-center h-8 w-14 rounded-full transition-all duration-200 ${
           active ? "bg-brand/18 text-brand-strong" : "text-muted"
@@ -204,7 +204,7 @@ function NavItem({ icon: Icon, label, active, onClick }) {
       >
         <Icon size={20} />
       </span>
-      <span className={`text-[11px] ${active ? "text-brand-strong font-semibold" : "text-muted"}`}>
+      <span className={`max-w-full truncate text-[10px] min-[360px]:text-[11px] ${active ? "text-brand-strong font-semibold" : "text-muted"}`}>
         {label}
       </span>
     </button>

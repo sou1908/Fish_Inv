@@ -11,18 +11,18 @@ export default function Products() {
   const { products, reloadProducts, currency } = useStore();
   const [editing, setEditing] = useState(null);
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="min-w-0 space-y-4">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Products</h1>
-        <button className="btn-primary" onClick={() => setEditing({})}><Plus size={18} /> Add product</button>
+        <button className="btn-primary shrink-0 text-sm sm:text-base" onClick={() => setEditing({})}><Plus size={18} /> Add product</button>
       </div>
       <p className="text-sm text-muted">Add a name and selling price. Enter daily costs in Sales.</p>
       {products.length === 0 && <EmptyState icon={Package} title="No products yet" hint="Add your first product to get started." />}
       {products.map((p) => (
-        <div key={p.id} className="card flex items-center justify-between gap-3">
-          <div><div className="font-semibold">{p.name}{!p.isActive && <span className="text-muted text-xs ml-2">Archived</span>}</div>
+        <div key={p.id} className="card flex min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0"><div className="break-words font-semibold">{p.name}{!p.isActive && <span className="text-muted text-xs ml-2">Archived</span>}</div>
             <p className="text-sm text-muted">{formatMoney(p.sellingPrice, currency)} each</p></div>
-          <button className="btn-ghost" aria-label={`Edit ${p.name}`} onClick={() => setEditing(p)}><Pencil size={16} /> Edit</button>
+          <button className="btn-ghost shrink-0" aria-label={`Edit ${p.name}`} onClick={() => setEditing(p)}><Pencil size={16} /><span className="hidden min-[380px]:inline">Edit</span></button>
         </div>
       ))}
       {editing && <ProductForm initial={editing} onClose={() => setEditing(null)} onSaved={async () => { await reloadProducts(); setEditing(null); }} />}

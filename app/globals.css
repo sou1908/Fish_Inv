@@ -39,8 +39,11 @@
 html,
 body {
   height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 body {
+  min-width: 320px;
   background: var(--paper);
   color: var(--text);
   font-family: var(--font-sans);
@@ -133,6 +136,27 @@ input[type="number"] {
 /* iOS home-indicator safe area for the bottom nav */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 479px) {
+  .card,
+  .kpi {
+    border-radius: 1rem;
+  }
+  .kpi {
+    padding: 0.875rem;
+  }
+  .kpi-value {
+    font-size: clamp(1.125rem, 5.7vw, 1.5rem);
+    overflow-wrap: anywhere;
+  }
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+  }
 }
 
 /* interactive cards lift on hover (pointer devices only) */

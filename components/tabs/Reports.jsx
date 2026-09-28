@@ -31,7 +31,7 @@ export default function Reports() {
     setFrom(addDays(currentDay, -days));
     setTo(currentDay);
   }
-  return <div className="space-y-5">
+  return <div className="min-w-0 space-y-5">
     <h1 className="text-xl font-bold">Reports</h1>
     <div className="grid grid-cols-3 gap-2">
       {PRESETS.map((preset) => {
@@ -39,7 +39,7 @@ export default function Reports() {
         return <button key={preset.label} type="button" className={selected ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} onClick={() => choosePreset(preset.days)} aria-pressed={selected}>{preset.label}</button>;
       })}
     </div>
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
       <label><span className="label">From</span><input type="date" className="field" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
       <label><span className="label">To</span><input type="date" className="field" value={to} onChange={(event) => setTo(event.target.value)} /></label>
     </div>
@@ -116,7 +116,7 @@ function ReportResults({ from, to, currency, settings, productById }) {
     download("fish-report-" + from + "_to_" + to + ".csv", csv);
   }
 
-  return <div className="space-y-5">
+  return <div className="min-w-0 space-y-5">
     <div className="grid grid-cols-2 gap-3">
       <MoneyKpi label="Revenue" paise={totals.revenue} currency={currency} />
       <MoneyKpi label="Net profit" paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
@@ -149,7 +149,20 @@ function ReportResults({ from, to, currency, settings, productById }) {
     <section>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted mb-2">Product profit</h2>
       {byProduct.length === 0 ? <p className="text-sm text-muted">No sales in this period.</p> :
-        <div className="card p-0 overflow-x-auto">
+        <>
+          <div className="space-y-3 sm:hidden">
+            {byProduct.map((row) => <article key={row.productId} className="card space-y-3">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <h3 className="min-w-0 break-words font-semibold">{row.name}</h3>
+                <strong className={`num shrink-0 ${row.profit < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(row.profit, currency)}</strong>
+              </div>
+              <dl className="grid grid-cols-2 border-t border-border pt-3 text-sm">
+                <div><dt className="text-xs text-muted">Units sold</dt><dd className="num font-medium">{row.units}</dd></div>
+                <div className="text-right"><dt className="text-xs text-muted">Margin</dt><dd className="num font-medium">{row.margin === null ? "—" : row.margin.toFixed(0) + "%"}</dd></div>
+              </dl>
+            </article>)}
+          </div>
+          <div className="card hidden overflow-x-auto p-0 sm:block">
           <table className="w-full min-w-[380px] text-sm">
             <thead><tr className="text-left text-muted border-b border-border">
               <th className="p-3">Product</th><th className="p-3 text-right">Units</th>
@@ -162,10 +175,11 @@ function ReportResults({ from, to, currency, settings, productById }) {
               <td className="p-3 text-right num">{row.margin === null ? "—" : row.margin.toFixed(0) + "%"}</td>
             </tr>)}</tbody>
           </table>
-        </div>}
+          </div>
+        </>}
     </section>
 
-    <div className="flex gap-2 pt-1">
+    <div className="grid grid-cols-2 gap-2 pt-1">
       <button className="btn-primary flex-1" disabled={exporting || !state.rows.length} onClick={exportPdf}><FileDown size={18} />{exporting ? "Creating…" : "PDF"}</button>
       <button className="btn-ghost flex-1" disabled={!state.rows.length} onClick={exportCsv}><Sheet size={18} /> CSV</button>
     </div>

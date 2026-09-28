@@ -77,30 +77,30 @@ export default function Dashboard({ goTo }) {
   const budget = settings?.allocatedBudget ?? 0;
   const remaining = budget - allTimeCost;
   const ids = [...new Set(todayRows.map((r) => r.productId))];
-  return <div className="space-y-5">
-    <section className="rounded-3xl bg-ink text-white p-6 md:p-8">
+  return <div className="min-w-0 space-y-5">
+    <section className="rounded-2xl bg-ink p-5 text-white sm:rounded-3xl sm:p-6 md:p-8">
       <p className="text-sm text-white/70">All recorded sales</p>
-      <h1 className="text-2xl font-bold mt-2">Overall profit / loss · all time</h1>
-      <p className={`text-4xl font-bold mt-3 ${allTime.profit < 0 ? "text-red-300" : "text-emerald-300"}`}>{formatMoney(allTime.profit, currency)}</p>
+      <h1 className="mt-2 text-xl font-bold sm:text-2xl">Overall profit / loss · all time</h1>
+      <p className={`num mt-3 break-words text-3xl font-bold sm:text-4xl ${allTime.profit < 0 ? "text-red-300" : "text-emerald-300"}`}>{formatMoney(allTime.profit, currency)}</p>
       <p className="text-sm text-white/70 mt-3">All sales revenue minus all recorded daily costs.</p>
     </section>
-    <div className="grid sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <MoneyKpi label="Sales revenue" paise={totals.revenue} currency={currency} />
       <MoneyKpi label="Total daily cost" paise={totals.cost} currency={currency} />
-      <MoneyKpi label={`Today's profit / loss · ${prettyDate(date)}`} paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
+      <MoneyKpi className="col-span-2 sm:col-span-1" label={`Today's profit / loss · ${prettyDate(date)}`} paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
     </div>
     <section className="card space-y-3">
       <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Overall budget</h2><button className="text-sm text-brand-strong" onClick={() => goTo("settings")}>Edit budget</button></div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
         <div><p className="text-muted">Starting budget</p><strong>{formatMoney(budget, currency)}</strong></div>
         <div><p className="text-muted">All recorded costs</p><strong>{formatMoney(allTimeCost, currency)}</strong></div>
-        <div><p className="text-muted">Remaining</p><strong className={remaining < 0 ? "text-danger" : "text-ok"}>{formatMoney(remaining, currency)}</strong></div>
+        <div className="col-span-2 sm:col-span-1"><p className="text-muted">Remaining</p><strong className={remaining < 0 ? "text-danger" : "text-ok"}>{formatMoney(remaining, currency)}</strong></div>
       </div>
       <p className="text-xs text-muted">All recorded product costs reduce this budget. It does not reset monthly.</p>
     </section>
     <div className="grid lg:grid-cols-2 gap-4">
       <section className="card min-w-0">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">Revenue</h2>
           <ChartPeriod period={revenuePeriod} onChange={setRevenuePeriod} label="Revenue" />
         </div>
@@ -120,7 +120,7 @@ export default function Dashboard({ goTo }) {
         ) : <p className="text-sm text-muted py-16 text-center">Record sales to see the revenue chart.</p>}
       </section>
       <section className="card min-w-0">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">Profit / loss</h2>
           <ChartPeriod period={profitPeriod} onChange={setProfitPeriod} label="Profit and loss" />
         </div>
@@ -172,7 +172,7 @@ export default function Dashboard({ goTo }) {
         </> : <p className="text-sm text-muted py-16 text-center">Record items sold to see the product share.</p>}
       </section>
     </div>
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:gap-3">
       <button className="btn-primary" onClick={() => goTo("sales")}>Enter daily sales</button>
       <button className="btn-ghost" onClick={() => goTo("products")}>Manage products</button>
     </div>
@@ -180,9 +180,9 @@ export default function Dashboard({ goTo }) {
       <h2 className="font-semibold">Today by product</h2>
       {ids.map((id) => {
         const values = summarizeSales(todayRows.filter((s) => s.productId === id));
-        return <div key={id} className="flex justify-between gap-3 border-t border-border pt-3">
-          <span>{productById(id)?.name || "Deleted product"} <span className="text-xs text-muted">({values.units} sold)</span></span>
-          <strong className={values.profit < 0 ? "text-danger" : "text-ok"}>{formatMoney(values.profit, currency)}</strong>
+        return <div key={id} className="flex min-w-0 items-start justify-between gap-3 border-t border-border pt-3">
+          <span className="min-w-0 break-words">{productById(id)?.name || "Deleted product"} <span className="text-xs text-muted">({values.units} sold)</span></span>
+          <strong className={`num shrink-0 ${values.profit < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(values.profit, currency)}</strong>
         </div>;
       })}
     </section>}
