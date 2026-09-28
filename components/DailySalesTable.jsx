@@ -28,7 +28,8 @@ function ProductBreakdown({ date, entries, currency, productById }) {
 export default function DailySalesTable({ days, sales = [], currency, productById, onSelectDate }) {
   const [expandedDate, setExpandedDate] = useState(null);
   const expandable = typeof productById === "function";
-  const columnCount = onSelectDate ? 6 : 5;
+  const hasBalances = days.some((day) => Number.isFinite(day.openingBalance) && Number.isFinite(day.closingBalance));
+  const columnCount = 5 + (hasBalances ? 2 : 0) + (onSelectDate ? 1 : 0);
   function toggle(date) {
     if (expandable) setExpandedDate((current) => current === date ? null : date);
   }
@@ -51,6 +52,10 @@ export default function DailySalesTable({ days, sales = [], currency, productByI
             <div className="min-w-0 text-center"><dt className="text-[11px] text-muted">Revenue</dt><dd className="num truncate font-medium">{formatMoney(day.revenue, currency)}</dd></div>
             <div className="min-w-0 text-right"><dt className="text-[11px] text-muted">Cost</dt><dd className="num truncate font-medium">{formatMoney(day.cost, currency)}</dd></div>
           </dl>
+          {hasBalances && <dl className="grid grid-cols-2 border-t border-border px-3 py-2.5 text-sm">
+            <div><dt className="text-[11px] text-muted">Opening balance</dt><dd className="num font-semibold">{formatMoney(day.openingBalance, currency)}</dd></div>
+            <div className="text-right"><dt className="text-[11px] text-muted">Closing balance</dt><dd className={`num font-semibold ${day.closingBalance < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(day.closingBalance, currency)}</dd></div>
+          </dl>}
           {onSelectDate && <div className="border-t border-border p-2"><button type="button" className="btn-ghost w-full py-2 text-sm" onClick={() => onSelectDate(day.date)}>View or edit this day</button></div>}
           {expanded && <ProductBreakdown date={day.date} entries={entries} currency={currency} productById={productById} />}
         </article>;
@@ -58,9 +63,9 @@ export default function DailySalesTable({ days, sales = [], currency, productByI
     </div>
 
     <div className="card hidden overflow-x-auto p-0 sm:block">
-      <table className="w-full min-w-[620px] text-sm" aria-label="Daily sales totals">
+      <table className={`w-full text-sm ${hasBalances ? "min-w-[820px]" : "min-w-[620px]"}`} aria-label="Daily sales totals">
         <thead><tr className="border-b border-border text-left text-muted">
-          <th className="p-3">Date</th><th className="p-3 text-right">Items sold</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">Cost</th><th className="p-3 text-right">Profit / loss</th>
+          <th className="p-3">Date</th>{hasBalances && <th className="p-3 text-right">Opening</th>}<th className="p-3 text-right">Items sold</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">Cost</th><th className="p-3 text-right">Profit / loss</th>{hasBalances && <th className="p-3 text-right">Closing</th>}
           {onSelectDate && <th className="p-3 text-right"><span className="sr-only">Action</span></th>}
         </tr></thead>
         <tbody>{days.map((day) => {
@@ -69,7 +74,7 @@ export default function DailySalesTable({ days, sales = [], currency, productByI
           return <Fragment key={day.date}>
             <tr className="border-b border-border">
               <td className="whitespace-nowrap p-3 font-medium">{expandable ? <button type="button" className="inline-flex items-center gap-1.5 hover:text-brand-strong" aria-expanded={expanded} onClick={() => toggle(day.date)}><ChevronRight size={16} className={`transition-transform ${expanded ? "rotate-90" : ""}`} />{prettyDate(day.date)}</button> : prettyDate(day.date)}</td>
-              <td className="num p-3 text-right">{day.units.toLocaleString("en-IN")}</td><td className="num p-3 text-right">{formatMoney(day.revenue, currency)}</td><td className="num p-3 text-right">{formatMoney(day.cost, currency)}</td><td className={`num p-3 text-right font-semibold ${day.profit < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(day.profit, currency)}</td>
+              {hasBalances && <td className="num p-3 text-right">{formatMoney(day.openingBalance, currency)}</td>}<td className="num p-3 text-right">{day.units.toLocaleString("en-IN")}</td><td className="num p-3 text-right">{formatMoney(day.revenue, currency)}</td><td className="num p-3 text-right">{formatMoney(day.cost, currency)}</td><td className={`num p-3 text-right font-semibold ${day.profit < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(day.profit, currency)}</td>{hasBalances && <td className={`num p-3 text-right font-semibold ${day.closingBalance < 0 ? "text-danger" : "text-ok"}`}>{formatMoney(day.closingBalance, currency)}</td>}
               {onSelectDate && <td className="p-2 text-right"><button type="button" className="btn-ghost whitespace-nowrap py-1.5 text-xs" onClick={() => onSelectDate(day.date)}>View / edit</button></td>}
             </tr>
             {expanded && <tr className="border-b border-border"><td colSpan={columnCount} className="p-0"><ProductBreakdown date={day.date} entries={entries} currency={currency} productById={productById} /></td></tr>}

@@ -8,6 +8,7 @@ import { api } from "@/lib/client";
 import { today, addDays, prettyDate } from "@/lib/date";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { buildReportData } from "@/lib/report";
+import { balanceForDate, buildDailyBalances } from "@/lib/balance";
 import { download, toCsv } from "@/lib/csv";
 import { KpiCard, MoneyKpi, Spinner } from "../ui";
 import DailySalesTable from "../DailySalesTable";
@@ -55,7 +56,7 @@ function ReportResults({ from, to, currency, settings, productById }) {
   const [exportError, setExportError] = useState("");
   useEffect(() => {
     let cancelled = false;
-    api.get("/api/sales?from=" + from + "&to=" + to).then((rows) => {
+    api.get("/api/sales").then((rows) => {
       if (!cancelled) setState({ loading: false, rows, error: "" });
     }).catch((error) => {
       if (!cancelled) setState({ loading: false, rows: [], error: error.message });
@@ -66,8 +67,14 @@ function ReportResults({ from, to, currency, settings, productById }) {
   if (state.loading) return <Spinner />;
   if (state.error) return <p role="alert" className="card text-danger">{state.error}</p>;
 
-  const report = buildReportData(state.rows);
+  const periodRows = state.rows.filter((row) => row.date >= from && row.date <= to);
+  const report = buildReportData(periodRows);
   const totals = report.totals;
+  const initialBalance = settings?.allocatedBudget ?? 0;
+  const openingBalance = balanceForDate(state.rows, initialBalance, from).openingBalance;
+  const closingBalance = balanceForDate(state.rows, initialBalance, to).closingBalance;
+  const balanceByDate = new Map(buildDailyBalances(state.rows, initialBalance).map((entry) => [entry.date, entry]));
+  const daily = report.daily.map((entry) => ({ ...entry, ...balanceByDate.get(entry.date) }));
   const byProduct = report.byProduct.map((row) => ({
     ...row,
     name: productById(row.productId)?.name || "Deleted product #" + row.productId,
@@ -92,9 +99,10 @@ function ReportResults({ from, to, currency, settings, productById }) {
           revenue: totals.revenue, cogs: totals.cost, grossProfit: totals.profit,
           overheads: 0, netProfit: totals.profit, units: totals.units,
           grossMargin: report.margin, netMargin: report.margin,
+          openingBalance, closingBalance,
         },
         byProduct,
-        daily: report.daily,
+        daily,
         dow: report.byWeekday.filter((day) => day.count > 0),
         purchases: [], wastage: [], closingStock: [],
       });
@@ -117,18 +125,20 @@ function ReportResults({ from, to, currency, settings, productById }) {
   }
 
   return <div className="min-w-0 space-y-5">
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <MoneyKpi label="Opening balance" paise={openingBalance} currency={currency} />
       <MoneyKpi label="Revenue" paise={totals.revenue} currency={currency} />
+      <MoneyKpi label="Total cost" paise={totals.cost} currency={currency} />
+      <MoneyKpi label="Closing balance" paise={closingBalance} currency={currency} tone={closingBalance < 0 ? "bad" : "good"} />
       <MoneyKpi label="Net profit" paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
-      <KpiCard label="Gross margin" value={marginText} tone={report.margin !== null && report.margin < 0 ? "bad" : "default"} />
       <KpiCard label="Net margin" value={marginText} tone={report.margin !== null && report.margin < 0 ? "bad" : "good"} />
     </div>
-    <p className="text-xs text-muted">Gross and net use the same recorded daily costs because this app has no separate overhead entry.</p>
+    <p className="text-xs text-muted">Profit is revenue minus recorded costs. The closing balance carries forward as the next day’s opening balance.</p>
 
     <section className="card">
       <h2 className="flex items-center gap-2 font-semibold"><BarChart3 size={18} /> Day of week</h2>
-      <p className="text-sm text-muted mt-2">{state.rows.length ? comparison : "No sales in this period."}</p>
-      {state.rows.length > 0 && <div className="h-44 mt-4" role="img" aria-label="Average sales revenue by day of week">
+      <p className="text-sm text-muted mt-2">{periodRows.length ? comparison : "No sales in this period."}</p>
+      {periodRows.length > 0 && <div className="h-44 mt-4" role="img" aria-label="Average sales revenue by day of week">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={report.byWeekday} margin={{ top: 6, right: 4, left: 4, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="#e5ebe6" />
@@ -142,8 +152,8 @@ function ReportResults({ from, to, currency, settings, productById }) {
 
     <section>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted mb-2">Daily sales</h2>
-      {report.daily.length === 0 ? <p className="text-sm text-muted">No sales in this period.</p> :
-        <DailySalesTable days={[...report.daily].reverse()} sales={state.rows} currency={currency} productById={productById} />}
+      {daily.length === 0 ? <p className="text-sm text-muted">No sales in this period.</p> :
+        <DailySalesTable days={[...daily].reverse()} sales={periodRows} currency={currency} productById={productById} />}
     </section>
 
     <section>

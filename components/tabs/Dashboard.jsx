@@ -5,8 +5,10 @@ import { useStore } from "../store";
 import { api } from "@/lib/client";
 import { today, prettyDate } from "@/lib/date";
 import { summarizeSales } from "@/lib/profit";
+import { balanceForDate } from "@/lib/balance";
 import { allTimeRevenue, itemsSoldByProduct, recentRevenue } from "@/lib/dashboard";
-import { Spinner, MoneyKpi } from "../ui";
+import { Spinner } from "../ui";
+import BalanceFlow from "../BalanceFlow";
 import { formatMoney } from "@/lib/money";
 
 const PIE_COLORS = ["#0e7665", "#e8a33d", "#317ca5", "#db704b", "#7b6bb3", "#70a35c", "#c772a4"];
@@ -57,8 +59,10 @@ export default function Dashboard({ goTo }) {
   if (state.loading) return <Spinner />;
   if (state.error) return <p role="alert" className="card text-danger">{state.error}</p>;
   const todayRows = state.rows.filter((row) => row.date === date);
-  const totals = summarizeSales(todayRows);
   const allTime = summarizeSales(state.rows);
+  const budget = settings?.allocatedBudget ?? 0;
+  const todayBalance = balanceForDate(state.rows, budget, date);
+  const currentBalance = budget + allTime.profit;
   const allTimeCost = allTime.cost;
   const recentChart = recentRevenue(state.rows, date);
   const allTimeChart = allTimeRevenue(state.rows);
@@ -74,8 +78,6 @@ export default function Dashboard({ goTo }) {
     name: productById(item.productId)?.name || `Deleted product #${item.productId}`,
   }));
   const totalItems = itemChart.reduce((sum, item) => sum + item.units, 0);
-  const budget = settings?.allocatedBudget ?? 0;
-  const remaining = budget - allTimeCost;
   const ids = [...new Set(todayRows.map((r) => r.productId))];
   return <div className="min-w-0 space-y-5">
     <section className="rounded-2xl bg-ink p-5 text-white sm:rounded-3xl sm:p-6 md:p-8">
@@ -84,19 +86,16 @@ export default function Dashboard({ goTo }) {
       <p className={`num mt-3 break-words text-3xl font-bold sm:text-4xl ${allTime.profit < 0 ? "text-red-300" : "text-emerald-300"}`}>{formatMoney(allTime.profit, currency)}</p>
       <p className="text-sm text-white/70 mt-3">All sales revenue minus all recorded daily costs.</p>
     </section>
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <MoneyKpi label="Sales revenue" paise={totals.revenue} currency={currency} />
-      <MoneyKpi label="Total daily cost" paise={totals.cost} currency={currency} />
-      <MoneyKpi className="col-span-2 sm:col-span-1" label={`Today's profit / loss · ${prettyDate(date)}`} paise={totals.profit} currency={currency} tone={totals.profit < 0 ? "bad" : "good"} />
-    </div>
+    <BalanceFlow balance={todayBalance} currency={currency} title={`Today's balance · ${prettyDate(date)}`} />
     <section className="card space-y-3">
-      <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Overall budget</h2><button className="text-sm text-brand-strong" onClick={() => goTo("settings")}>Edit budget</button></div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-        <div><p className="text-muted">Starting budget</p><strong>{formatMoney(budget, currency)}</strong></div>
+      <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Running balance</h2><button className="text-sm text-brand-strong" onClick={() => goTo("settings")}>Edit opening balance</button></div>
+      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div><p className="text-muted">Initial opening balance</p><strong>{formatMoney(budget, currency)}</strong></div>
         <div><p className="text-muted">All recorded costs</p><strong>{formatMoney(allTimeCost, currency)}</strong></div>
-        <div className="col-span-2 sm:col-span-1"><p className="text-muted">Remaining</p><strong className={remaining < 0 ? "text-danger" : "text-ok"}>{formatMoney(remaining, currency)}</strong></div>
+        <div><p className="text-muted">All sales revenue</p><strong>{formatMoney(allTime.revenue, currency)}</strong></div>
+        <div><p className="text-muted">Balance after all records</p><strong className={currentBalance < 0 ? "text-danger" : "text-ok"}>{formatMoney(currentBalance, currency)}</strong></div>
       </div>
-      <p className="text-xs text-muted">All recorded product costs reduce this budget. It does not reset monthly.</p>
+      <p className="text-xs text-muted">Each day starts with the previous closing balance. Costs are subtracted and sales revenue is added.</p>
     </section>
     <div className="grid lg:grid-cols-2 gap-4">
       <section className="card min-w-0">

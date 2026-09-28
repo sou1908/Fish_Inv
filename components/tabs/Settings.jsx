@@ -84,8 +84,8 @@ export default function Settings() {
     <form onSubmit={save} className="card space-y-4">
       <h1 className="text-xl font-bold">Settings</h1>
       <label className="block"><span className="label">Business name</span><input className="field" required value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="block"><span className="label">Overall budget ({currency})</span><MoneyInput value={budget} onChange={setBudget} /></label>
-      <p className="text-xs text-muted">The Dashboard subtracts every recorded product cost from this one budget. It does not reset monthly.</p>
+      <label className="block"><span className="label">Initial opening balance ({currency})</span><MoneyInput value={budget} onChange={setBudget} /></label>
+      <p className="text-xs text-muted">This is the first day’s opening balance. Each day’s costs reduce it, sales revenue increases it, and the closing balance carries into the next day.</p>
       <button className="btn-primary w-full sm:w-auto" disabled={busy || !name.trim()}>{busy ? "Working…" : "Save settings"}</button>
     </form>
     <section className="card space-y-4">
