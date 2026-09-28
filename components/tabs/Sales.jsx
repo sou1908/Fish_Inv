@@ -6,21 +6,41 @@ import { api } from "@/lib/client";
 import { formatMoney } from "@/lib/money";
 import { today, prettyDate } from "@/lib/date";
 import { saleTotals, summarizeSales, validateSale } from "@/lib/profit";
-import { MoneyInput, NumberInput, EmptyState, Spinner, Modal, MoneyKpi } from "../ui";
+import { buildReportData } from "@/lib/report";
+import DailySalesTable from "../DailySalesTable";
+import { MoneyInput, NumberInput, EmptyState, Spinner, Modal, MoneyKpi, KpiCard } from "../ui";
+
+const HISTORY_PERIODS = ["Day", "Month", "Year", "All time"];
 
 export default function Sales() {
   const { products, currency, productById } = useStore();
   const [date, setDate] = useState(today());
+  const [view, setView] = useState("entry");
+  const [historyVersion, setHistoryVersion] = useState(0);
+  function openDay(selectedDate) {
+    setDate(selectedDate);
+    setView("entry");
+  }
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-xl font-bold">Daily sales</h1>
-      <label><span className="sr-only">Sales date</span><input type="date" className="field w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
+    <h1 className="text-xl font-bold">Sales</h1>
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" className={view === "entry" ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={view === "entry"} onClick={() => setView("entry")}>Record sales</button>
+      <button type="button" className={view === "history" ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={view === "history"} onClick={() => setView("history")}>Sales history</button>
     </div>
-    <DailySales key={date} date={date} products={products} currency={currency} productById={productById} />
+    <div className={view === "entry" ? "space-y-4" : "hidden"}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-bold">Record daily sales</h2>
+        <label><span className="sr-only">Sales date</span><input type="date" className="field w-auto" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
+      </div>
+      <DailySales key={date} date={date} products={products} currency={currency} productById={productById} onChanged={() => setHistoryVersion((value) => value + 1)} />
+    </div>
+    <div className={view === "history" ? "" : "hidden"}>
+      <SalesHistory currency={currency} productById={productById} refreshVersion={historyVersion} onSelectDate={openDay} />
+    </div>
   </div>;
 }
 
-function DailySales({ date, products, currency, productById }) {
+function DailySales({ date, products, currency, productById, onChanged }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,7 +60,11 @@ function DailySales({ date, products, currency, productById }) {
   async function remove(row) {
     if (!confirm("Delete this daily sales entry?")) return;
     setBusy(true); setError("");
-    try { await api.del(`/api/sales/${row.id}`); setRows((old) => old.filter((s) => s.id !== row.id)); }
+    try {
+      await api.del(`/api/sales/${row.id}`);
+      setRows((old) => old.filter((s) => s.id !== row.id));
+      onChanged();
+    }
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -75,9 +99,61 @@ function DailySales({ date, products, currency, productById }) {
         </div>;
       })}
     {editing && <SaleForm initial={editing} available={available} products={products} date={date} currency={currency} onClose={() => setEditing(null)} onSaved={(row) => {
-      setRows((old) => [row, ...old.filter((r) => r.id !== row.id)]); setEditing(null);
+      setRows((old) => [row, ...old.filter((r) => r.id !== row.id)]); setEditing(null); onChanged();
     }} />}
   </div>;
+}
+
+function SalesHistory({ currency, productById, refreshVersion, onSelectDate }) {
+  const current = today();
+  const [period, setPeriod] = useState("Month");
+  const [day, setDay] = useState(current);
+  const [month, setMonth] = useState(current.slice(0, 7));
+  const [year, setYear] = useState(Number(current.slice(0, 4)));
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [state, setState] = useState({ loading: true, rows: [], error: "" });
+  const query = period === "Day" ? `/api/sales?date=${day}`
+    : period === "Month" ? `/api/sales?month=${month}`
+      : period === "Year" ? `/api/sales?from=${year}-01-01&to=${year}-12-31`
+        : "/api/sales";
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get(query).then((rows) => {
+      if (!cancelled) setState({ loading: false, rows, error: "" });
+    }).catch((error) => {
+      if (!cancelled) setState({ loading: false, rows: [], error: error.message });
+    });
+    return () => { cancelled = true; };
+  }, [query, refreshVersion, reloadVersion]);
+
+  function startLoading() {
+    setState((previous) => ({ ...previous, loading: true, error: "" }));
+  }
+
+  const report = buildReportData(state.rows);
+  const days = [...report.daily].reverse();
+  return <section className="space-y-4">
+    <div>
+      <h2 className="text-lg font-bold">Sales history</h2>
+      <p className="text-sm text-muted mt-1">Review daily totals for one day, month, year, or all recorded sales.</p>
+    </div>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {HISTORY_PERIODS.map((value) => <button key={value} type="button" className={period === value ? "btn-primary py-2 text-sm" : "btn-ghost py-2 text-sm"} aria-pressed={period === value} onClick={() => { if (period !== value) { startLoading(); setPeriod(value); } }}>{value}</button>)}
+    </div>
+    {period === "Day" && <label className="block max-w-xs"><span className="label">Day</span><input type="date" className="field" value={day} onChange={(event) => { if (event.target.value) { startLoading(); setDay(event.target.value); } }} /></label>}
+    {period === "Month" && <label className="block max-w-xs"><span className="label">Month</span><input type="month" className="field" value={month} onChange={(event) => { if (event.target.value) { startLoading(); setMonth(event.target.value); } }} /></label>}
+    {period === "Year" && <label className="block max-w-xs"><span className="label">Year</span><input type="number" className="field" min="2000" max="9999" step="1" value={year} onChange={(event) => { if (Number.isInteger(event.target.valueAsNumber)) { startLoading(); setYear(event.target.valueAsNumber); } }} /></label>}
+    {state.loading ? <Spinner label="Loading sales history…" /> : state.error ? <p role="alert" className="card text-danger">{state.error} <button type="button" className="btn-ghost" onClick={() => { startLoading(); setReloadVersion((value) => value + 1); }}>Retry</button></p> : <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard label="Items sold" value={report.totals.units.toLocaleString("en-IN")} />
+        <MoneyKpi label="Revenue" paise={report.totals.revenue} currency={currency} />
+        <MoneyKpi label="Total cost" paise={report.totals.cost} currency={currency} />
+        <MoneyKpi label="Profit / loss" paise={report.totals.profit} currency={currency} tone={report.totals.profit < 0 ? "bad" : "good"} />
+      </div>
+      {days.length ? <DailySalesTable days={days} sales={state.rows} currency={currency} productById={productById} onSelectDate={onSelectDate} /> : <EmptyState icon={Receipt} title="No sales in this period" />}
+    </>}
+  </section>;
 }
 
 function SaleForm({ initial, available, products, date, currency, onClose, onSaved }) {

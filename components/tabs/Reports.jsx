@@ -10,6 +10,7 @@ import { formatAmount, formatMoney } from "@/lib/money";
 import { buildReportData } from "@/lib/report";
 import { download, toCsv } from "@/lib/csv";
 import { KpiCard, MoneyKpi, Spinner } from "../ui";
+import DailySalesTable from "../DailySalesTable";
 
 const PRESETS = [
   { label: "7 days", days: 6 },
@@ -137,6 +138,12 @@ function ReportResults({ from, to, currency, settings, productById }) {
           </BarChart>
         </ResponsiveContainer>
       </div>}
+    </section>
+
+    <section>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted mb-2">Daily sales</h2>
+      {report.daily.length === 0 ? <p className="text-sm text-muted">No sales in this period.</p> :
+        <DailySalesTable days={[...report.daily].reverse()} sales={state.rows} currency={currency} productById={productById} />}
     </section>
 
     <section>

@@ -6,8 +6,9 @@ React (Next.js) + Supabase Postgres, deployed on Vercel. Single shared-password 
 Products need only a name and selling price. In Sales, record each product's
 quantity sold and **total daily cost**. Profit/loss = quantity × saved selling
 price − total daily cost. Costs can be recorded even with zero items sold.
-The Dashboard shows today's totals. Reports has 7/30/90-day presets and custom
-dates, weekday revenue averages, product profit, and PDF/CSV downloads.
+Sales history can be filtered by day, month, year, or all time. Reports has
+7/30/90-day presets and custom dates, daily sales totals, weekday revenue
+averages, product profit, and PDF/CSV downloads.
 The Dashboard also shows overall profit/loss across all recorded sales,
 separate daily revenue and profit/loss charts for the last 30 days or all time, and each product's share of items sold
 across all time.
